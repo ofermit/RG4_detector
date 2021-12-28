@@ -1,13 +1,9 @@
 import os
 
-# import tensorflow as tf
-# from keras.losses import mse
-# from tensorflow import keras
 from tensorflow.keras.models import Sequential, Model
 from keras.layers import Dense , Conv2D , Flatten ,Conv1D , MaxPooling1D , MaxPool1D
 from keras.layers import Dropout
 # from tensorflow.keras.optimizers import Adam
-# from scipy.stats.stats import pearsonr
 import pandas as pd
 import numpy as np
 import tensorflow as tf
@@ -19,20 +15,6 @@ import random as python_random
 from tensorflow.keras.models import load_model
 from csv import writer
 
-def onehot_encoding(string):
-    transtab = str.maketrans('ACGT','0123')
-    string= str(string)
-    data = [int(x) for x in list(string.translate(transtab))]
-    almost = np.eye(4)[data]
-    return almost
-
-def tf_pearson(x, y):
-    mx = tf.math.reduce_mean(input_tensor=x,keepdims=True)          # E[X]
-    my = tf.math.reduce_mean(input_tensor=y,keepdims=True)          # E[Y]
-    xm, ym = x-mx, y-my
-    r_num = tf.math.reduce_mean(input_tensor=tf.multiply(xm,ym))    # E[(X-E[X])*(Y-E[Y])] = COV[X,Y]
-    r_den = tf.math.reduce_std(xm) * tf.math.reduce_std(ym)         # sigma(X)*sigma(Y)
-    return  r_num / r_den                                           # COV[X,Y] \ sigma(X)*sigma(Y)
 
 def one_hot_enc(seq):
     seq = seq[:-1]
@@ -61,16 +43,12 @@ def get_data(path, min_read=2000,add_RNAplfold =False,export_np_arr=False,load_n
     # train
     if load_np_arr:
         folder = "/np_data"
-
         if add_RNAplfold:
-            folder = "/np_data_pl"
-
-        if add_evulution:
-            folder = "/np_data_evu"
-
+            folder = folder + "_pl"
         if add_mfe :
-            folder = "/np_data_mfe"
-
+            folder = folder + "_mfe"   
+        if add_evulution:
+            folder = folder + "_evu"
 
         #Train
         X_train = np.load(path+ folder + "/X_train.npy")
@@ -168,35 +146,20 @@ def get_data(path, min_read=2000,add_RNAplfold =False,export_np_arr=False,load_n
                     head_nums = np.array(list(source))
                 head_nums = head_nums.astype(int)
                 idx = 0
-                #values_temp1 = np.array([])
-                #values_temp1 = []
                 values_temp1 = np.zeros(1000000000)
                 ref_dic[chrom] = []
-                time_list1 = []
-                time_list2 = []
                 idx=0
                 for f in range(len(head_nums)):
-                    temp_time = time.time()
                     head_nums[f] = head_nums[f]-1
                     headline = values_temp[head_nums[f]]
                     ref_dic[chrom].append(get_head(headline))
                     if f==0:
                         continue
-                    #temp = np.concatenate((values_temp[head_nums[f-1]+1:head_nums[f]],np.zeros(ref_dic[chrom][-1]-ref_dic[chrom][-2]-head_nums[f]+head_nums[f-1]+1)))
                     a = ref_dic[chrom][-1]-ref_dic[chrom][-2]-head_nums[f]+head_nums[f-1]+1
-                    #values_temp1 = np.concatenate((values_temp1,values_temp[head_nums[f-1]+1:head_nums[f]]))
-                    #a=[ref_dic[chrom][-1] , ref_dic[chrom][-2] ,head_nums[f] , head_nums[f - 1]]
-                    #values_temp1 = np.concatenate((values_temp1,np.zeros(ref_dic[chrom][-1]-ref_dic[chrom][-2]-head_nums[f]+head_nums[f-1]+1)))
-                    #values_temp1 = np.concatenate((values_temp1,temp))
-                    #values_temp1.append(values_temp1,temp)
                     start = head_nums[f - 1] + 1
                     end = head_nums[f]
                     values_temp1[idx:idx+end-start] = values_temp[start:end]
                     idx = idx+end-start+a
-                    time_list2.append(time.time()-temp_time)
-                print(time_list2)
-                #values_temp = np.array(values_temp[1:])
-                #values_temp1 = np.concatenate((values_temp1, values_temp[head_nums[f - 1]:]))
                 start = head_nums[f] + 1
                 end = len(values_temp)
                 values_temp1[idx:idx + end - start] = values_temp[head_nums[f]+1:]
@@ -284,17 +247,18 @@ def get_data(path, min_read=2000,add_RNAplfold =False,export_np_arr=False,load_n
                 temp = np.column_stack((temp, pl_test))
                 X_new.append(temp)
             X_test = np.array(X_new)
-
-
+    
     if export_np_arr :
-
         folder = "/np_data"
+
         if add_RNAplfold:
-            folder = "/np_data_pl"
-        if add_evulution:
-            folder = "/np_data_evu"
+            folder = folder + "_pl"
+
         if add_mfe :
-            folder = "/np_data_mfe"
+            folder = folder + "_mfe"
+            
+        if add_evulution:
+            folder = folder + "_evu"
 
 
         np.save(path + folder + "/X_train.npy",X_train)
@@ -344,14 +308,6 @@ def trim_mat(data,INPUT_SIZE,mfe=False):
         data = [X_Data, Y_Data, W_Data]
     return data
 
-    # [X_Data, Y_Data, W_Data] = data
-    # total_data_size = X_Data.shape[1]
-    # start = total_data_size // 2 - INPUT_SIZE // 2
-    # end = start + INPUT_SIZE
-    # X_Data = X_Data[:, start:end, :]
-    # data = [X_Data,Y_Data,W_Data]
-    # return data
-
 class HyperParams:
 
     def __init__(self):
@@ -360,9 +316,9 @@ class HyperParams:
         self.dense_size_list = [16, 32, 64, 128]
         self.dropout_list = [0.1, 0.2, 0.3, 0.4, 0.5]
         self.lr_list = [0.01, 0.005, 0.001, 0.0005, 0.0001]
-        self.activations_list = ['relu', 'sigmoid', 'relu']
+        self.activations_list = ['relu', 'sigmoid', 'swishh']
         self.batch_size_list = [16, 32, 64, 128]
-        self.epochs_list = [x for x in range(1, 10)]
+        self.epochs_list = [x for x in range(3, 20)]
         self.INPUT_SIZE = 100
         self.FILTER = 32
         self.KERNEL_SIZE = 42
@@ -557,6 +513,7 @@ Use_Test           = params.Use_Test
 if Cloud_run :
 
     path = "/home/u110379/RG4_Proj/rg4_data"
+    # path = "/home/u93513/V1/rg4_data" ofer
     # path = "~/RG4_Proj/rg4_data"
     # path = "./rg4_data"
 else:
@@ -596,7 +553,7 @@ CSV_Path = "./out_results/"+"out_results_csv_"+name + "_" + witch_data_types  + 
 os.makedirs(CSV_Path,exist_ok=True)
 #---------------------------------------------- Read data---------------------------------------------------------------
 if 'seq' in Data_run_list:
-    train, test, validation = get_data(path, load_np_arr=True, add_RNAplfold=False, export_np_arr=False, add_evulution=False, add_mfe=False)
+    train, test, validation = get_data(path, load_np_arr=True, add_RNAplfold=False, export_np_arr=False, add_evolution=False, add_mfe=False)
 
 if 'mfe' in Data_run_list:
         train_mfe, test_mfe, validation_mfe  = get_data(path, load_np_arr=True, add_RNAplfold=False, export_np_arr=False,add_evulution=False, add_mfe=True)
